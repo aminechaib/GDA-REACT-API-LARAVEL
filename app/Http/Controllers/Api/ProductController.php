@@ -17,46 +17,43 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        // This is the logic from Step 3
-        $request->validate([
-            'startRow' => 'required|integer',
-            'endRow' => 'required|integer',
-            'sortModel' => 'nullable|array',
-            'filterModel' => 'nullable|array',
-        ]);
+        $page = $request->input('page', 1);
+        $rowsPerPage = $request->input('rowsPerPage', 100);
+        $sortBy = $request->input('sortBy', 'id');
+        $sortType = $request->input('sortType', 'asc');
 
-        $startRow = $request->input('startRow');
-        $endRow = $request->input('endRow');
-        $limit = $endRow - $startRow;
+        $query = \App\Models\Product::query();
 
-        $query = Product::query();
+        // --- START: ADD THIS SEARCH LOGIC ---
+        if ($request->has('searchValue') && !empty($request->input('searchValue'))) {
+            $searchValue = $request->input('searchValue');
 
-        // Handle Column Filters (filterModel)
-        if ($request->has('filterModel')) {
-            foreach ($request->input('filterModel') as $field => $filter) {
-                if ($filter['filterType'] == 'text') {
-                    $query->where($field, 'LIKE', '%' . $filter['filter'] . '%');
-                }
-            }
+            // This will search for the term in any of these columns
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('ref', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('designation', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('marque', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('fournisseur', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('ref_constructeur', 'LIKE', "%{$searchValue}%");
+            });
         }
+        // --- END: SEARCH LOGIC ---
 
-        // Handle Sorting (sortModel)
-        if ($request->has('sortModel') && !empty($request->input('sortModel'))) {
-            foreach ($request->input('sortModel') as $sort) {
-                $query->orderBy($sort['colId'], $sort['sort']);
-            }
-        } else {
-            $query->orderBy('id', 'asc');
-        }
+        // Get total count *after* applying search filters
+        $total = $query->count();
 
-        $totalRows = $query->count();
-        $products = $query->offset($startRow)->limit($limit)->get();
+        // Apply sorting and pagination
+        $products = $query->orderBy($sortBy, $sortType)
+            ->skip(($page - 1) * $rowsPerPage)
+            ->take($rowsPerPage)
+            ->get();
 
         return response()->json([
             'rows' => $products,
-            'lastRow' => $totalRows,
+            'total' => $total,
         ]);
     }
+
 
     /**
      * Handles the Excel file upload and initiates the import process.
@@ -77,5 +74,38 @@ class ProductController extends Controller
         } catch (\Exception $e) {
             return response()->json(['message' => 'An error occurred during import.', 'error' => $e->getMessage()], 500);
         }
+    }
+    public function simpleIndex(Request $request)
+    {
+        $page = $request->input('page', 1);
+        $rowsPerPage = $request->input('rowsPerPage', 100);
+        $sortBy = $request->input('sortBy', 'id');
+        $sortType = $request->input('sortType', 'asc');
+
+        $query = \App\Models\Product::query();
+
+        // Simple global search (we can add a search input later)
+        if ($request->has('searchValue') && !empty($request->input('searchValue'))) {
+            $searchValue = $request->input('searchValue');
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('ref', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('designation', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('marque', 'LIKE', "%{$searchValue}%");
+            });
+        }
+
+        // Get total count before pagination
+        $total = $query->count();
+
+        // Apply sorting and pagination
+        $products = $query->orderBy($sortBy, $sortType)
+            ->skip(($page - 1) * $rowsPerPage)
+            ->take($rowsPerPage)
+            ->get();
+
+        return response()->json([
+            'rows' => $products,
+            'total' => $total,
+        ]);
     }
 }
