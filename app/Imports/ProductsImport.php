@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 // We have removed SkipsOnError and SkipsErrors
 use PhpOffice\PhpSpreadsheet\Shared\Date;
+use Carbon\Carbon;
 
 class ProductsImport implements
     ToModel,
@@ -24,11 +25,21 @@ class ProductsImport implements
         $dateValue = $row['date'] ?? null;
         $formattedDate = null;
 
-        if (!empty($dateValue) && is_numeric($dateValue)) {
-            $formattedDate = Date::excelToDateTimeObject($dateValue);
+        if (!empty($dateValue)) {
+            try {
+                $parsedDate = Carbon::parse($dateValue);
+                $formattedDate = $parsedDate->format('Y-m-d');
+            } catch (\Exception $e) {
+                // Fallback for classic Excel serial dates
+                if (is_numeric($dateValue)) {
+                    $excelDateTime = Date::excelToDateTimeObject($dateValue);
+                    $formattedDate = $excelDateTime->format('Y-m-d');
+                } else {
+                    $formattedDate = now()->format('Y-m-d');
+                }
+            }
         } else {
-            // If date is invalid or empty, default to the current date.
-            $formattedDate = now();
+            $formattedDate = now()->format('Y-m-d');
         }
 
         $priceValue = $row['prix'] ?? '0';

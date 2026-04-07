@@ -57,6 +57,7 @@ const headers = [
   { text: "Designation", value: "designation", sortable: true, width: 300 },
   { text: "Marque", value: "marque", sortable: true },
   { text: "Prix", value: "prix", sortable: true },
+  { text: "Date", value: "date", sortable: true, width: 140 },
   { text: "Fournisseur", value: "fournisseur", sortable: true },
 ];
 
