@@ -26,20 +26,33 @@ class ProductsImport implements
         $formattedDate = null;
 
         if (!empty($dateValue)) {
-            try {
-                $parsedDate = Carbon::parse($dateValue);
-                $formattedDate = $parsedDate->format('Y-m-d');
-            } catch (\Exception $e) {
-                // Fallback for classic Excel serial dates
-                if (is_numeric($dateValue)) {
-                    $excelDateTime = Date::excelToDateTimeObject($dateValue);
-                    $formattedDate = $excelDateTime->format('Y-m-d');
+            $trimmedValue = trim((string) $dateValue);
+            // Handle M/D/YYYY format like "9/2/2026"
+            if (preg_match('/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})$/', $trimmedValue, $matches)) {
+                $month = $matches[1];
+                $day = $matches[2];
+                $year = $matches[3];
+                $parsedDate = Carbon::createFromFormat('n/j/Y', $trimmedValue);
+                if ($parsedDate) {
+                    $formattedDate = $parsedDate->format('Y-m-d');
                 } else {
                     $formattedDate = now()->format('Y-m-d');
                 }
+            } else {
+                try {
+                    $parsedDate = Carbon::parse($trimmedValue);
+                    $formattedDate = $parsedDate->format('Y-m-d');
+                } catch (\Exception $e) {
+                    if (is_numeric($trimmedValue)) {
+                        $excelDateTime = Date::excelToDateTimeObject($trimmedValue);
+                        $formattedDate = $excelDateTime->format('Y-m-d');
+                    } else {
+                        $formattedDate = now()->format('Y-m-d');
+                    }
+                }
             }
         } else {
-            $formattedDate = now()->format('Y-m-d');
+            $formattedDate = null; // Allow nullable
         }
 
         $priceValue = $row['prix'] ?? '0';

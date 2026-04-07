@@ -57,7 +57,7 @@ const headers = [
   { text: "Designation", value: "designation", sortable: true, width: 300 },
   { text: "Marque", value: "marque", sortable: true },
   { text: "Prix", value: "prix", sortable: true },
-  { text: "Date", value: "date", sortable: true, width: 140 },
+{ text: "Date", value: "date_display", sortable: true, width: 140 },
   { text: "Fournisseur", value: "fournisseur", sortable: true },
 ];
 
@@ -89,6 +89,16 @@ onMounted(() => {
   }
 });
 
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
+
 const loadFromServer = async () => {
   loading.value = true;
   try {
@@ -101,7 +111,11 @@ const loadFromServer = async () => {
         searchValue: searchValue.value,
       }
     } );
-    items.value = response.data.rows;
+    // Format date for display
+    items.value = response.data.rows.map(item => ({
+      ...item,
+      date_display: formatDate(item.date)
+    }));
     serverItemsLength.value = response.data.total;
   } catch (error) {
     console.error("Failed to fetch data:", error);
