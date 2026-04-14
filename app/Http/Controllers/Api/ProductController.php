@@ -56,23 +56,73 @@ class ProductController extends Controller
 
 
     /**
-     * Handles the Excel file upload and initiates the import process.
+     * Handles Excel import with column mapping from frontend.
      */
-    public function import(Request $request)
+    public function importMapping(Request $request)
     {
-        // This is the logic from Step 2
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls,csv'
+            'data' => 'required|array|min:1',
+            'mapping' => 'required|array',
+            'fournisseur_id' => 'nullable|integer',
+            'new_fournisseur' => 'nullable|string|max:255',
+            'date' => 'nullable|date'
         ]);
 
+        $data = $request->data;
+        $mapping = $request->mapping;
+        $fournisseurId = $request->fournisseur_id;
+        $newFournisseur = $request->new_fournisseur;
+        $date = $request->date ?: now()->format('Y-m-d');
+
+        // Get fournisseur name from ID (match controller logic)
+        $fournisseurName = $newFournisseur;
+        if (!$fournisseurName && $fournisseurId) {
+            $allFournisseurs = Product::select('fournisseur as nom')
+                ->whereNotNull('fournisseur')
+                ->where('fournisseur', '!=', '')
+                ->distinct()
+                ->orderBy('fournisseur')
+                ->get()
+                ->values();
+
+            $selected = $allFournisseurs->get($fournisseurId - 1); // Index-based ID
+            $fournisseurName = $selected?->nom ?? '';
+        }
+
+        // Transform data based on mapping
+        $transformedData = [];
+        foreach ($data as $row) {
+            $transformedRow = [
+                'ref' => $row[$mapping['ref']] ?? '',
+                'designation' => $row[$mapping['designation']] ?? '',
+                'marque' => $row[$mapping['marque']] ?? '',
+                'prix' => floatval(str_replace(',', '.', $row[$mapping['prix']] ?? 0)),
+                'fournisseur' => $fournisseurName,
+                'date' => $date,
+            ];
+
+            if (!empty($transformedRow['ref'])) {
+                $transformedData[] = $transformedRow;
+            }
+        }
+
         try {
-            Excel::import(new ProductsImport, $request->file('file'));
-            return response()->json(['message' => 'Products imported successfully.'], 200);
-        } catch (ValidationException $e) {
-            $failures = $e->failures();
-            return response()->json(['errors' => $failures], 422);
+            foreach ($transformedData as $row) {
+                Product::updateOrCreate(
+                    ['ref' => $row['ref']],
+                    $row
+                );
+            }
+
+            return response()->json([
+                'message' => count($transformedData) . ' products imported/updated successfully!',
+                'imported' => count($transformedData)
+            ], 200);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'An error occurred during import.', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Import failed',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
     public function simpleIndex(Request $request)

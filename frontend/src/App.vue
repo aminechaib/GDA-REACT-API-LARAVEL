@@ -3,6 +3,12 @@
     <header class="app-header">
       <div class="header-left">
         <h1>GESTION D'ARRIVAGE</h1>
+        <button class="import-btn glass-btn" @click="showImportModal = true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          Import Excel
+        </button>
         <button class="theme-toggle" @click="toggleDark" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
           <svg v-if="isDark" class="icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.707 2.707a1 1 0 010 1.414L13.414 9a1 1 0 01-1.414 0L11 8.414l-1 1-2.293-2.293a1 1 0 011.414-1.414L10 7.586l2.293-2.293a1 1 0 011.414 0zM10 15a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-5.657-4.707a1 1 0 011.414 0l1.293 1.293a1 1 0 01-1.414 1.414L4.343 12.414a1 1 0 010-1.414zM10 11a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1z" clip-rule="evenodd" />
@@ -42,11 +48,15 @@
     <div v-if="loading" class="loading-overlay">
       <div class="spinner"></div>
     </div>
+
+    <!-- Import Modal -->
+    <ImportModal v-if="showImportModal" :show-modal="showImportModal" @close="showImportModal = false" />
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onMounted } from 'vue';
+import ImportModal from './components/ImportModal.vue';
 import EasyDataTable from 'vue3-easy-data-table';
 import 'vue3-easy-data-table/dist/style.css';
 import axios from 'axios';
@@ -65,6 +75,7 @@ const items = ref([]);
 const loading = ref(true);
 const serverItemsLength = ref(0);
 const searchValue = ref('');
+const showImportModal = ref(false);
 
 const serverOptions = ref({
   page: 1,
@@ -194,6 +205,7 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   margin-bottom: 1.5rem;
   flex-shrink: 0;
   background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
@@ -201,6 +213,32 @@ html, body {
   border-radius: 12px;
   color: white;
   box-shadow: var(--shadow);
+}
+
+.import-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+}
+
+.import-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(255, 255, 255, 0.3);
+}
+
+.import-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
 .header-left {

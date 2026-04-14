@@ -11,7 +11,8 @@
   "dependencies": {
     "axios": "^1.14.0",
     "vue": "^3.5.31",
-    "vue3-easy-data-table": "^1.5.47"
+    "vue3-easy-data-table": "^1.5.47",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.5",
