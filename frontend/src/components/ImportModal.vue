@@ -60,19 +60,20 @@
         </div>
 
         <!-- Fournisseur -->
-        <div class="fournisseur-section">
+          <div class="fournisseur-section">
           <label>Fournisseur
             <span v-if="loadingFournisseurs" class="loading">loading...</span>
             <span v-else-if="fournisseursError" class="error">{{ fournisseursError }}</span>
           </label>
-          <div class="fournisseur-select">
+          <div class="fournisseur-input-group">
+            <input v-if="!newFournisseur" v-model="fournisseurSearch" placeholder="🔍 Search fournisseurs..." class="glass-input search-input">
             <select v-model="fournisseurId" class="glass-input flex-1" :disabled="loadingFournisseurs">
-              <option value="">Select existing ({{ fournisseurs.length }})</option>
-              <option v-for="sup in fournisseurs" :key="'sup-'+sup.id" :value="sup.id">{{ sup.nom }}</option>
+              <option value="">Select ({{ filteredFournisseurs.length }}/{{ fournisseurs.length }})</option>
+              <option v-for="sup in filteredFournisseurs" :key="'sup-'+sup.id" :value="sup.id">{{ sup.nom }}</option>
             </select>
-            <button v-if="!newFournisseur" class="btn-secondary" @click="newFournisseur = true" :disabled="loadingFournisseurs">+ New</button>
-            <input v-else v-model="newFournisseurNom" placeholder="New fournisseur name" class="glass-input" @keyup.enter="createFournisseur">
+            <button class="btn-secondary" @click="newFournisseur = true" :disabled="loadingFournisseurs">+ New</button>
           </div>
+          <input v-if="newFournisseur" v-model="newFournisseurNom" placeholder="New fournisseur name" class="glass-input mt-2" @keyup.enter="createFournisseur">
         </div>
 
         <!-- Date Picker -->
@@ -193,6 +194,12 @@ const getMappedValue = (row, field) => {
 
 const loadingFournisseurs = ref(false);
 const fournisseursError = ref('');
+const fournisseurSearch = ref('');
+
+const filteredFournisseurs = computed(() => {
+  const term = fournisseurSearch.value.toLowerCase();
+  return fournisseurs.value.filter(f => f.nom.toLowerCase().includes(term));
+});
 
 const loadFournisseurs = async () => {
   loadingFournisseurs.value = true;
@@ -249,8 +256,7 @@ onMounted(loadFournisseurs);
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 2000;
   display: flex;
   align-items: center;
@@ -260,14 +266,15 @@ onMounted(loadFournisseurs);
 }
 
 .modal {
-  max-width: 800px;
-  width: 100%;
-  max-height: 90vh;
+  max-width: 900px;
+  width: 95%;
+  max-height: 92vh;
   overflow-y: auto;
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(20px);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(32px);
+  background: var(--glass-bg);
+  box-shadow: 0 32px 64px -16px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .modal-header {
@@ -301,19 +308,21 @@ onMounted(loadFournisseurs);
 }
 
 .upload-area {
-  border: 2px dashed var(--border-light);
-  border-radius: 20px;
-  padding: 3rem 2rem;
+  border: 3px dashed var(--glass-border);
+  border-radius: 24px;
+  padding: 3.5rem 2.5rem;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s;
-  margin: 2rem 0;
+  transition: all 0.3s ease;
+  margin: 2.5rem 0;
+  background: var(--glass-bg);
 }
 
 .upload-area:hover {
   border-color: var(--primary-color);
-  background: rgba(29, 99, 140, 0.05);
+  background: linear-gradient(135deg, var(--glass-bg), rgba(var(--primary-color), 0.05));
   transform: translateY(-2px);
+  box-shadow: 0 8px 25px var(--shadow-soft);
 }
 
 .hover-lift:hover {
@@ -351,31 +360,74 @@ onMounted(loadFournisseurs);
   color: var(--text-primary);
 }
 
+/* Premium Eye-Friendly Palette */
+:root {
+  --glass-bg: #ffffff;
+  --glass-border: #d1d5db;
+  --primary-color: #2563eb;
+  --primary-dark: #1d4ed8;
+  --success-color: #059669;
+  --error-color: #dc2626;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --border-light: #e5e7eb;
+  --shadow-soft: rgba(0, 0, 0, 0.05);
+}
+
+.dark {
+  --glass-bg: #1f2937;
+  --glass-border: #4b5563;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --border-light: #374151;
+  --shadow-soft: rgba(0, 0, 0, 0.4);
+}
+
 .glass-input {
   background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  padding: 0.875rem 1rem;
+  border: 2px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
   font-size: 1rem;
   width: 100%;
-  transition: all 0.3s;
-  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.glass-input::placeholder {
+  color: var(--text-secondary);
 }
 
 .glass-input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(29, 99, 140, 0.2);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
 }
 
 .fournisseur-section, .date-section {
   margin: 2rem 0;
 }
 
-.fournisseur-select {
+.fournisseur-section {
+  margin: 2rem 0;
+}
+
+.fournisseur-input-group {
   display: flex;
   gap: 1rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  min-width: 200px;
+}
+
+.mt-2 {
+  margin-top: 0.5rem;
+  width: 100%;
 }
 
 .btn-secondary {
@@ -444,12 +496,22 @@ onMounted(loadFournisseurs);
   background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
   color: white;
   border: none;
-  padding: 1rem 2rem;
-  border-radius: 12px;
+  padding: 1.125rem 2.25rem;
+  border-radius: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
-  min-width: 200px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 220px;
+  box-shadow: 0 4px 14px 0 rgba(15, 118, 110, 0.4);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 8px 25px rgba(15, 118, 110, 0.5);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5);
 }
 
 .btn-primary:hover:not(:disabled) {

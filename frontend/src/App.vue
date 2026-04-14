@@ -2,6 +2,11 @@
   <div id="app-container">
     <header class="app-header">
       <div class="header-left">
+        <button class="mobile-menu-btn" @click="showMobileMenu = !showMobileMenu" v-if="isMobile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
         <h1>GESTION D'ARRIVAGE</h1>
         <button class="import-btn glass-btn" @click="showImportModal = true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -9,6 +14,21 @@
           </svg>
           Import Excel
         </button>
+        <button class="export-btn glass-btn" @click="exportToExcel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          Export Excel
+        </button>
+
+        <div class="filter-section">
+          <button class="filter-btn glass-btn" @click="showFilters = !showFilters">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+            </svg>
+            Filters
+          </button>
+        </div>
         <button class="theme-toggle" @click="toggleDark" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
           <svg v-if="isDark" class="icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.707 2.707a1 1 0 010 1.414L13.414 9a1 1 0 01-1.414 0L11 8.414l-1 1-2.293-2.293a1 1 0 011.414-1.414L10 7.586l2.293-2.293a1 1 0 011.414 0zM10 15a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-5.657-4.707a1 1 0 011.414 0l1.293 1.293a1 1 0 01-1.414 1.414L4.343 12.414a1 1 0 010-1.414zM10 11a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1z" clip-rule="evenodd" />
@@ -26,23 +46,104 @@
       </div>
     </header>
 
-    <div class="table-container">
-      <!-- The key change is REMOVING the :table-height prop -->
-      <EasyDataTable
-        :headers="headers"
-        :items="items"
-        :loading="loading"
-        :server-items-length="serverItemsLength"
-        v-model:server-options="serverOptions"
-        :rows-per-page-options="[10, 50, 100, 300, 1000]"
-        theme-color="#1d638c"
-        table-class-name="modern-table"
-        header-class-name="modern-header"
-        body-class-name="modern-body"
-        buttons-pagination
-        fixed-header
-      />
+    <!-- Advanced Filters -->
+    <div v-if="showFilters" class="filters-panel glass-card">
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label>Date From</label>
+          <input type="date" v-model="filters.dateFrom" class="glass-input">
+        </div>
+        <div class="filter-group">
+          <label>Date To</label>
+          <input type="date" v-model="filters.dateTo" class="glass-input">
+        </div>
+        <div class="filter-group">
+          <label>Fournisseur</label>
+          <select v-model="filters.fournisseur" class="glass-input">
+            <option value="">All Suppliers</option>
+            <option v-for="sup in fournisseurs" :key="'filter-'+sup.id" :value="sup.nom">{{ sup.nom }}</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Min Price</label>
+          <input type="number" v-model="filters.minPrice" placeholder="0" class="glass-input">
+        </div>
+        <div class="filter-group">
+          <label>Max Price</label>
+          <input type="number" v-model="filters.maxPrice" placeholder="999999" class="glass-input">
+        </div>
+        <div class="filter-actions">
+          <button class="btn-secondary" @click="clearFilters">Clear</button>
+          <button class="btn-primary" @click="applyFilters">Apply</button>
+        </div>
+      </div>
     </div>
+
+    <div class="dashboard-overview">
+      <div class="stats-grid">
+        <div class="stat-card glass-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <h3>{{ serverItemsLength }}</h3>
+            <p>Total Products</p>
+          </div>
+        </div>
+
+        <div class="stat-card glass-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <h3>{{ totalValue.toFixed(2) }}€</h3>
+            <p>Total Value</p>
+          </div>
+        </div>
+
+        <div class="stat-card glass-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 4v10a2 2 0 002 2h4a2 2 0 002-2V11M9 11h6"></path>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <h3>{{ uniqueFournisseurs }}</h3>
+            <p>Suppliers</p>
+          </div>
+        </div>
+
+        <div class="stat-card glass-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <h3>{{ recentImports }}</h3>
+            <p>Recent Imports</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <EasyDataTable
+      :headers="headers"
+      :items="items"
+      :loading="loading"
+      :server-items-length="serverItemsLength"
+      v-model:server-options="serverOptions"
+      :rows-per-page-options="[10, 50, 100, 300, 1000]"
+      theme-color="#1d638c"
+      table-class-name="modern-table"
+      header-class-name="modern-header"
+      body-class-name="modern-body"
+      buttons-pagination
+      fixed-header
+    />
 
     <!-- Loading overlay -->
     <div v-if="loading" class="loading-overlay">
@@ -51,15 +152,28 @@
 
     <!-- Import Modal -->
     <ImportModal v-if="showImportModal" :show-modal="showImportModal" @close="showImportModal = false" />
+
+    <!-- Toast Notifications -->
+    <Toast
+      :show="toast.show"
+      :type="toast.type"
+      :title="toast.title"
+      :message="toast.message"
+      @close="hideToast"
+    />
   </div>
 </template>
 
 <script setup>
+// [script content - unchanged from previous]
 import { ref, watch, onMounted } from 'vue';
 import ImportModal from './components/ImportModal.vue';
+import './assets/new-ui.css';
+import Toast from './components/Toast.vue';
 import EasyDataTable from 'vue3-easy-data-table';
 import 'vue3-easy-data-table/dist/style.css';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 
 const headers = [
   { text: "ID", value: "id", sortable: true, width: 80 },
@@ -67,7 +181,7 @@ const headers = [
   { text: "Designation", value: "designation", sortable: true, width: 300 },
   { text: "Marque", value: "marque", sortable: true },
   { text: "Prix", value: "prix", sortable: true },
-{ text: "Date", value: "date_display", sortable: true, width: 140 },
+  { text: "Date", value: "date_display", sortable: true, width: 140 },
   { text: "Fournisseur", value: "fournisseur", sortable: true },
 ];
 
@@ -76,6 +190,70 @@ const loading = ref(true);
 const serverItemsLength = ref(0);
 const searchValue = ref('');
 const showImportModal = ref(false);
+const totalValue = ref(0);
+const uniqueFournisseurs = ref(0);
+const recentImports = ref(0);
+const showFilters = ref(false);
+
+// Filters
+const filters = ref({
+  dateFrom: '',
+  dateTo: '',
+  fournisseur: '',
+  minPrice: '',
+  maxPrice: ''
+});
+
+const fournisseurs = ref([]);
+const showMobileMenu = ref(false);
+const isMobile = ref(false);
+
+// Toast system
+const toast = ref({
+  show: false,
+  type: 'info',
+  title: '',
+  message: ''
+});
+
+const showToast = (type, title, message, duration = 5000) => {
+  toast.value = { show: true, type, title, message };
+  if (duration > 0) {
+    setTimeout(() => {
+      toast.value.show = false;
+    }, duration);
+  }
+};
+
+const hideToast = () => {
+  toast.value.show = false;
+};
+
+const loadFournisseurs = async () => {
+  try {
+    const { data } = await axios.get('http://127.0.0.1:8000/api/fournisseurs');
+    fournisseurs.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('Failed to load fournisseurs', error);
+  }
+};
+
+const applyFilters = () => {
+  loadFromServer();
+  showToast('success', 'Filters Applied', 'Products filtered successfully');
+};
+
+const clearFilters = () => {
+  filters.value = {
+    dateFrom: '',
+    dateTo: '',
+    fournisseur: '',
+    minPrice: '',
+    maxPrice: ''
+  };
+  loadFromServer();
+  showToast('info', 'Filters Cleared', 'All filters have been reset');
+};
 
 const serverOptions = ref({
   page: 1,
@@ -92,12 +270,57 @@ const toggleDark = () => {
   document.documentElement.classList.toggle('dark');
 };
 
+const exportToExcel = async () => {
+  try {
+    showToast('info', 'Exporting...', 'Preparing your Excel file');
+
+    const response = await axios.get('http://127.0.0.1:8000/api/products', {
+      params: {
+        page: 1,
+        rowsPerPage: 10000,
+        sortBy: 'id',
+        sortType: 'asc',
+      }
+    });
+
+    const exportData = response.data.rows.map(item => ({
+      ID: item.id,
+      Reference: item.ref,
+      Designation: item.designation,
+      Marque: item.marque,
+      Prix: item.prix,
+      Date: formatDate(item.date),
+      Fournisseur: item.fournisseur
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+
+    const fileName = `products_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+
+    showToast('success', 'Export Complete', `File saved as ${fileName}`);
+
+  } catch (error) {
+    console.error('Export failed:', error);
+    showToast('error', 'Export Failed', 'Could not export data. Check console for details.');
+  }
+};
+
 onMounted(() => {
   const saved = localStorage.getItem('darkMode');
   isDark.value = saved === 'true';
   if (isDark.value) {
     document.documentElement.classList.add('dark');
   }
+  loadFournisseurs();
+
+  const checkMobile = () => {
+    isMobile.value = window.innerWidth < 768;
+  };
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
 });
 
 const formatDate = (dateString) => {
@@ -113,21 +336,38 @@ const formatDate = (dateString) => {
 const loadFromServer = async () => {
   loading.value = true;
   try {
-    const response = await axios.get('http://127.0.0.1:8000/api/products', {
-      params: {
-        page: serverOptions.value.page,
-        rowsPerPage: serverOptions.value.rowsPerPage,
-        sortBy: serverOptions.value.sortBy,
-        sortType: serverOptions.value.sortType,
-        searchValue: searchValue.value,
-      }
-    } );
-    // Format date for display
+    const params = {
+      page: serverOptions.value.page,
+      rowsPerPage: serverOptions.value.rowsPerPage,
+      sortBy: serverOptions.value.sortBy,
+      sortType: serverOptions.value.sortType,
+      searchValue: searchValue.value,
+    };
+
+    if (filters.value.dateFrom) params.dateFrom = filters.value.dateFrom;
+    if (filters.value.dateTo) params.dateTo = filters.value.dateTo;
+    if (filters.value.fournisseur) params.fournisseur = filters.value.fournisseur;
+    if (filters.value.minPrice) params.minPrice = filters.value.minPrice;
+    if (filters.value.maxPrice) params.maxPrice = filters.value.maxPrice;
+
+    const response = await axios.get('http://127.0.0.1:8000/api/products', { params });
     items.value = response.data.rows.map(item => ({
       ...item,
       date_display: formatDate(item.date)
     }));
     serverItemsLength.value = response.data.total;
+
+    const allItems = response.data.rows;
+    totalValue.value = allItems.reduce((sum, item) => sum + (parseFloat(item.prix) || 0), 0);
+    uniqueFournisseurs.value = new Set(allItems.map(item => item.fournisseur).filter(Boolean)).size;
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    recentImports.value = allItems.filter(item => {
+      const itemDate = new Date(item.date);
+      return itemDate >= sevenDaysAgo;
+    }).length;
+
   } catch (error) {
     console.error("Failed to fetch data:", error);
     alert("Failed to load data from the server. Check console for details.");
@@ -167,22 +407,14 @@ loadFromServer();
   --shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-/* --- FULL PAGE STYLES --- */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
   font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: var(--color-background, var(--bg-light));
-  color: var(--color-text, var(--text-primary));
+  background: var(--bg-light);
+  color: var(--text-primary);
   transition: background-color 0.3s, color 0.3s;
-}
-
-/* Ensure full space */
-#app, main {
-  height: 100%;
-  width: 100%;
-  padding: 0;
 }
 
 #app-container {
@@ -193,12 +425,6 @@ html, body {
   background: var(--bg-light);
   transition: background 0.3s;
   box-sizing: border-box;
-}
-
-@media (min-width: 768px) {
-  #app-container {
-    padding: 1.5rem;
-  }
 }
 
 .app-header {
@@ -215,112 +441,56 @@ html, body {
   box-shadow: var(--shadow);
 }
 
-.import-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  border-radius: 12px;
-  padding: 0.75rem 1.5rem;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  transition: all 0.3s;
-  backdrop-filter: blur(10px);
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.import-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(255, 255, 255, 0.3);
-}
-
-.import-btn svg {
-  width: 20px;
-  height: 20px;
-}
-
-.header-left {
+.stat-card {
   display: flex;
   align-items: center;
   gap: 1rem;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+  transition: transform 0.3s ease;
 }
 
-.app-header h1 {
-  font-size: 1.8rem;
-  margin: 0;
-  font-weight: 700;
+.stat-card:hover {
+  transform: translateY(-2px);
 }
 
-.theme-toggle {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  color: white;
-  cursor: pointer;
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  color: white;
 }
 
-.theme-toggle:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.05);
+.stat-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
-.icon {
-  width: 20px;
-  height: 20px;
-}
-
-.search-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 1rem;
-  width: 20px;
-  height: 20px;
-  color: var(--text-secondary);
-}
-
-.search-wrapper input {
-  padding: 0.75rem 1rem 0.75rem 3rem;
-  border-radius: 12px;
-  border: 2px solid var(--border-light);
-  font-size: 1rem;
-  width: 320px;
-  background: var(--bg-card);
+.stat-content h3 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
   color: var(--text-primary);
-  transition: all 0.3s ease;
 }
 
-.search-wrapper input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 4px rgba(29, 99, 140, 0.1);
-}
-
-@media (max-width: 640px) {
-  .search-wrapper input {
-    width: 250px;
-  }
-}
-
-.table-container {
-  flex-grow: 1;
-  overflow: hidden;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  background: var(--bg-card);
+.stat-content p {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .modern-table {
@@ -333,51 +503,6 @@ html, body {
   height: 100%;
 }
 
-.modern-table .modern-body {
-  flex-grow: 1;
-  overflow-y: auto;
-}
-
-/* Responsive table scroll */
-@media (max-width: 768px) {
-  .modern-table .modern-body {
-    overflow-x: auto;
-  }
-}
-
-/* Striped rows & hover */
-.modern-table tbody tr:nth-child(even) {
-  background: rgba(0, 0, 0, 0.02);
-}
-
-.dark .modern-table tbody tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.modern-table tbody tr:hover {
-  background: rgba(29, 99, 140, 0.1) !important;
-}
-
-.dark .modern-table tbody tr:hover {
-  background: rgba(29, 99, 140, 0.2) !important;
-}
-
-.modern-header {
-  font-weight: 600;
-  color: var(--text-primary);
-  border-bottom: 2px solid var(--border-light);
-  flex-shrink: 0;
-  background: var(--bg-card);
-}
-
-.vue3-easy-data-table__footer {
-  border-top: 1px solid var(--border-light);
-  padding-top: 1rem;
-  flex-shrink: 0;
-  background: var(--bg-card);
-}
-
-/* Loading overlay */
 .loading-overlay {
   position: absolute;
   top: 0;
@@ -389,7 +514,6 @@ html, body {
   align-items: center;
   justify-content: center;
   z-index: 10;
-  backdrop-filter: blur(2px);
 }
 
 .spinner {
