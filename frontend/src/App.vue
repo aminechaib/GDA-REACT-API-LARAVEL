@@ -165,6 +165,7 @@ const searchMarque = ref('');
 const searchDate = ref('');
 const searchFournisseur = ref('');
 const searchDesignation = ref('');
+const searchValue = ref('');
 const showImportModal = ref(false);
 const totalValue = ref(0);
 const uniqueFournisseurs = ref(0);
@@ -179,6 +180,13 @@ const filters = ref({
   minPrice: '',
   maxPrice: ''
 });
+
+// Auto-reactivity for filters
+watch(filters, () => {
+  debounceTimer = setTimeout(() => {
+    loadFromServer();
+  }, 500);
+}, { deep: true });
 
 const fournisseurs = ref([]);
 const showMobileMenu = ref(false);
@@ -322,6 +330,7 @@ const loadFromServer = async () => {
       date: searchDate.value,
       fournisseur: searchFournisseur.value,
       designation: searchDesignation.value,
+      searchValue: searchValue.value,
     };
 
     if (filters.value.dateFrom) params.dateFrom = filters.value.dateFrom;
@@ -356,7 +365,7 @@ const loadFromServer = async () => {
 };
 
 let debounceTimer;
-watch([serverOptions, searchRef, searchMarque, searchDate, searchFournisseur, searchDesignation], () => {
+watch([serverOptions, searchRef, searchMarque, searchDate, searchFournisseur, searchDesignation, searchValue], () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     loadFromServer();

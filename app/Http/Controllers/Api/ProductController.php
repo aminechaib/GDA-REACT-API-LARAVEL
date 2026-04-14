@@ -24,25 +24,57 @@ class ProductController extends Controller
 
         $query = \App\Models\Product::query();
 
-        // --- START: ADD THIS SEARCH LOGIC ---
-        if ($request->has('searchValue') && !empty($request->input('searchValue'))) {
-            $searchValue = $request->input('searchValue');
+        // Quick search fields
+        if ($request->filled('ref')) {
+            $query->where('ref', 'LIKE', '%' . $request->input('ref') . '%');
+        }
+        if ($request->filled('marque')) {
+            $query->where('marque', 'LIKE', '%' . $request->input('marque') . '%');
+        }
+        if ($request->filled('date')) {
+            $query->whereDate('date', $request->input('date'));
+        }
+        if ($request->filled('fournisseur')) {
+            $query->where('fournisseur', 'LIKE', '%' . $request->input('fournisseur') . '%');
+        }
+        if ($request->filled('designation')) {
+            $query->where('designation', 'LIKE', '%' . $request->input('designation') . '%');
+        }
 
-            // This will search for the term in any of these columns
+        // Global search (searchValue)
+        if ($request->filled('searchValue')) {
+            $searchValue = $request->input('searchValue');
             $query->where(function ($q) use ($searchValue) {
                 $q->where('ref', 'LIKE', "%{$searchValue}%")
                     ->orWhere('designation', 'LIKE', "%{$searchValue}%")
                     ->orWhere('marque', 'LIKE', "%{$searchValue}%")
-                    ->orWhere('fournisseur', 'LIKE', "%{$searchValue}%")
-                    ->orWhere('ref_constructeur', 'LIKE', "%{$searchValue}%");
+                    ->orWhere('fournisseur', 'LIKE', "%{$searchValue}%");
             });
         }
-        // --- END: SEARCH LOGIC ---
 
-        // Get total count *after* applying search filters
+        // Advanced filters
+        if ($request->filled('dateFrom')) {
+            $query->whereDate('date', '>=', $request->input('dateFrom'));
+        }
+        if ($request->filled('dateTo')) {
+            $query->whereDate('date', '<=', $request->input('dateTo'));
+        }
+        if ($request->filled('fournisseur') && $request->input('fournisseur') !== 'All Suppliers') {
+            $query->where('fournisseur', 'LIKE', '%' . $request->input('fournisseur') . '%');
+        }
+        if ($request->filled('minPrice')) {
+            $query->where('prix', '>=', floatval($request->input('minPrice')));
+        }
+        if ($request->filled('maxPrice')) {
+            $query->where('prix', '<=', floatval($request->input('maxPrice')));
+        }
+
+        // Get total count AFTER filters
         $total = $query->count();
 
         // Apply sorting and pagination
+        $total = $query->count();
+
         $products = $query->orderBy($sortBy, $sortType)
             ->skip(($page - 1) * $rowsPerPage)
             ->take($rowsPerPage)
