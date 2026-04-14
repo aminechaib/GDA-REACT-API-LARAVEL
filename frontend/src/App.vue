@@ -79,55 +79,27 @@
       </div>
     </div>
 
-    <div class="dashboard-overview">
-      <div class="stats-grid">
-        <div class="stat-card glass-card">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <h3>{{ serverItemsLength }}</h3>
-            <p>Total Products</p>
-          </div>
-        </div>
-
-        <div class="stat-card glass-card">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <h3>{{ totalValue.toFixed(2) }}€</h3>
-            <p>Total Value</p>
-          </div>
-        </div>
-
-        <div class="stat-card glass-card">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 4v10a2 2 0 002 2h4a2 2 0 002-2V11M9 11h6"></path>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <h3>{{ uniqueFournisseurs }}</h3>
-            <p>Suppliers</p>
-          </div>
-        </div>
-
-        <div class="stat-card glass-card">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <h3>{{ recentImports }}</h3>
-            <p>Recent Imports</p>
-          </div>
-        </div>
+    <!-- Quick Search Row -->
+    <div class="quick-search-grid">
+      <div class="search-group">
+        <label>Reference</label>
+        <input v-model="searchRef" placeholder="Search by ref..." class="search-input">
+      </div>
+      <div class="search-group">
+        <label>Marque</label>
+        <input v-model="searchMarque" placeholder="Search by marque..." class="search-input">
+      </div>
+      <div class="search-group">
+        <label>Date</label>
+        <input type="date" v-model="searchDate" class="search-input">
+      </div>
+      <div class="search-group">
+        <label>Fournisseur</label>
+        <input v-model="searchFournisseur" placeholder="Search by fournisseur..." class="search-input">
+      </div>
+      <div class="search-group">
+        <label>Produit</label>
+        <input v-model="searchDesignation" placeholder="Search by designation..." class="search-input">
       </div>
     </div>
     <EasyDataTable
@@ -188,7 +160,11 @@ const headers = [
 const items = ref([]);
 const loading = ref(true);
 const serverItemsLength = ref(0);
-const searchValue = ref('');
+const searchRef = ref('');
+const searchMarque = ref('');
+const searchDate = ref('');
+const searchFournisseur = ref('');
+const searchDesignation = ref('');
 const showImportModal = ref(false);
 const totalValue = ref(0);
 const uniqueFournisseurs = ref(0);
@@ -341,7 +317,11 @@ const loadFromServer = async () => {
       rowsPerPage: serverOptions.value.rowsPerPage,
       sortBy: serverOptions.value.sortBy,
       sortType: serverOptions.value.sortType,
-      searchValue: searchValue.value,
+      ref: searchRef.value,
+      marque: searchMarque.value,
+      date: searchDate.value,
+      fournisseur: searchFournisseur.value,
+      designation: searchDesignation.value,
     };
 
     if (filters.value.dateFrom) params.dateFrom = filters.value.dateFrom;
@@ -376,7 +356,7 @@ const loadFromServer = async () => {
 };
 
 let debounceTimer;
-watch([serverOptions, searchValue], () => {
+watch([serverOptions, searchRef, searchMarque, searchDate, searchFournisseur, searchDesignation], () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     loadFromServer();
