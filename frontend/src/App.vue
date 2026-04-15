@@ -1,14 +1,23 @@
 <template>
   <div id="app-container">
-    <header class="app-header">
+<header class="app-header">
       <div class="header-left">
         <button class="mobile-menu-btn" @click="showMobileMenu = !showMobileMenu" v-if="isMobile">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
           </svg>
         </button>
-        <h1>GESTION D'ARRIVAGE</h1>
-        <button class="import-btn glass-btn" @click="showImportModal = true">
+        <div class="auth-section" v-if="!user">
+          <button class="login-btn glass-btn" @click="showLogin = true">Login</button>
+          <button class="register-btn glass-btn" @click="showRegister = true">Register</button>
+        </div>
+        <div class="user-section" v-else>
+          <span class="user-name">{{ user.name }}</span>
+          <button class="logout-btn glass-btn" @click="logout">Logout</button>
+        </div>
+        <h1 v-if="user">Welcome, {{ user.name }}!</h1>
+        <h1 v-else>GESTION D'ARRIVAGE</h1>
+        <button class="import-btn glass-btn" @click="showImportModal = true" v-if="user">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
           </svg>
@@ -24,7 +33,7 @@
 
         </div>
 
-       
+
         <button class="theme-toggle" @click="toggleDark" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
           <svg v-if="isDark" class="icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.707 2.707a1 1 0 010 1.414L13.414 9a1 1 0 01-1.414 0L11 8.414l-1 1-2.293-2.293a1 1 0 011.414-1.414L10 7.586l2.293-2.293a1 1 0 011.414 0zM10 15a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-5.657-4.707a1 1 0 011.414 0l1.293 1.293a1 1 0 01-1.414 1.414L4.343 12.414a1 1 0 010-1.414zM10 11a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1z" clip-rule="evenodd" />
@@ -113,6 +122,34 @@
       fixed-header
     />
 
+    <!-- Login Modal -->
+    <div v-if="showLogin" class="modal-overlay" @click.self="showLogin = false">
+      <div class="modal-card">
+        <h2>Login</h2>
+        <form @submit.prevent="login">
+          <input v-model="loginForm.email" type="email" placeholder="Email" required>
+          <input v-model="loginForm.password" type="password" placeholder="Password" required>
+          <button type="submit" class="btn-primary">Login</button>
+          <button type="button" @click="showLogin = false" class="btn-secondary">Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div v-if="showRegister" class="modal-overlay" @click.self="showRegister = false">
+      <div class="modal-card">
+        <h2>Register</h2>
+        <form @submit.prevent="register">
+          <input v-model="registerForm.name" type="text" placeholder="Name" required>
+          <input v-model="registerForm.email" type="email" placeholder="Email" required>
+          <input v-model="registerForm.password" type="password" placeholder="Password" required minlength="8">
+          <input v-model="registerForm.password_confirmation" type="password" placeholder="Confirm Password" required>
+          <button type="submit" class="btn-primary">Register</button>
+          <button type="button" @click="showRegister = false" class="btn-secondary">Cancel</button>
+        </form>
+      </div>
+    </div>
+
     <!-- Loading overlay -->
     <div v-if="loading" class="loading-overlay">
       <div class="spinner"></div>
@@ -142,6 +179,64 @@ import EasyDataTable from 'vue3-easy-data-table';
 import 'vue3-easy-data-table/dist/style.css';
 import axios from 'axios';
 
+
+const user = ref(null);
+const showLogin = ref(false);
+const showRegister = ref(false);
+const loginForm = ref({ email: '', password: '' });
+const registerForm = ref({ name: '', email: '', password: '', password_confirmation: '' });
+
+const login = async () => {
+  try {
+    const response = await axios.post('/login', loginForm.value);
+    localStorage.setItem('auth_token', response.data.token);
+    user.value = response.data.user;
+    showLogin.value = false;
+    showToast('success', 'Login Success', 'Welcome back!');
+    loadFromServer();
+    loadFournisseurs();
+  } catch (error) {
+    showToast('error', 'Login Failed', error.response?.data?.message || 'Invalid credentials');
+  }
+};
+
+const register = async () => {
+  try {
+    const response = await axios.post('/register', registerForm.value);
+    localStorage.setItem('auth_token', response.data.token);
+    user.value = response.data.user;
+    showRegister.value = false;
+    showToast('success', 'Registration Success', 'Account created!');
+    loadFromServer();
+    loadFournisseurs();
+  } catch (error) {
+    showToast('error', 'Registration Failed', error.response?.data?.message || 'Registration failed');
+  }
+};
+
+const logout = async () => {
+  try {
+    await axios.post('/logout');
+  } catch (e) {}
+  localStorage.removeItem('auth_token');
+  user.value = null;
+  showToast('info', 'Logged Out', 'Goodbye!');
+  loadFromServer();
+  loadFournisseurs();
+};
+
+onMounted(() => {
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    // Verify token by fetching /user
+    axios.get('/user').then(response => {
+      user.value = response.data;
+    }).catch(() => {
+      localStorage.removeItem('auth_token');
+    });
+  }
+  // ... rest of onMounted
+});
 
 const headers = [
   { text: "ID", value: "id", sortable: true, width: 80 },
@@ -322,6 +417,16 @@ onMounted(() => {
   if (isDark.value) {
     document.documentElement.classList.add('dark');
   }
+
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    axios.get('/user').then(response => {
+      user.value = response.data;
+    }).catch(() => {
+      localStorage.removeItem('auth_token');
+    });
+  }
+
   loadFournisseurs();
 
   const checkMobile = () => {
@@ -469,6 +574,131 @@ html, body {
 .dark .export-mode {
   background: rgba(0,0,0,0.3);
   border-color: rgba(255,255,255,0.2);
+}
+
+.auth-section, .user-section {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.login-btn, .register-btn, .logout-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.login-btn {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.register-btn {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.logout-btn {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.user-name {
+  font-weight: 500;
+  color: white;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-card {
+  background: var(--bg-card);
+  padding: 2rem;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: var(--shadow);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-card h2 {
+  margin-top: 0;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.modal-card input {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.modal-card input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(29, 99, 140, 0.1);
+}
+
+.modal-card button {
+  width: 100%;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+
+.btn-secondary {
+  background: var(--border-light);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: var(--text-secondary);
+  color: white;
+}
+
+.dark .modal-card {
+  background: var(--bg-card);
+}
+
+.dark .modal-card input {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-color: var(--border-light);
 }
 
 .stats-grid {
