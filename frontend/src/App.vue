@@ -14,21 +14,17 @@
           </svg>
           Import Excel
         </button>
-        <button class="export-btn glass-btn" @click="exportToExcel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-          </svg>
-          Export Excel
-        </button>
-
-        <div class="filter-section">
-          <button class="filter-btn glass-btn" @click="showFilters = !showFilters">
+        <div class="export-group">
+          <button class="export-btn glass-btn" @click="exportToExcel(exportMode)" :title="exportMode === 'filtered' ? 'Export current filtered view' : 'Export all products'">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
             </svg>
-            Filters
+            Export Excel
           </button>
+
         </div>
+
+       
         <button class="theme-toggle" @click="toggleDark" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
           <svg v-if="isDark" class="icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4.707 2.707a1 1 0 010 1.414L13.414 9a1 1 0 01-1.414 0L11 8.414l-1 1-2.293-2.293a1 1 0 011.414-1.414L10 7.586l2.293-2.293a1 1 0 011.414 0zM10 15a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-5.657-4.707a1 1 0 011.414 0l1.293 1.293a1 1 0 01-1.414 1.414L4.343 12.414a1 1 0 010-1.414zM10 11a1 1 0 011 1v3a1 1 0 11-2 0v-3a1 1 0 011-1z" clip-rule="evenodd" />
@@ -145,7 +141,7 @@ import Toast from './components/Toast.vue';
 import EasyDataTable from 'vue3-easy-data-table';
 import 'vue3-easy-data-table/dist/style.css';
 import axios from 'axios';
-import * as XLSX from 'xlsx';
+
 
 const headers = [
   { text: "ID", value: "id", sortable: true, width: 80 },
@@ -171,6 +167,7 @@ const totalValue = ref(0);
 const uniqueFournisseurs = ref(0);
 const recentImports = ref(0);
 const showFilters = ref(false);
+const exportMode = ref('filtered');
 
 // Filters
 const filters = ref({
@@ -181,12 +178,16 @@ const filters = ref({
   maxPrice: ''
 });
 
-// Auto-reactivity for filters
-watch(filters, () => {
-  debounceTimer = setTimeout(() => {
-    loadFromServer();
-  }, 500);
-}, { deep: true });
+// Shared debounce vars/functions - declare before watches
+let debounceTimer;
+
+const debounceHandler = (delay) => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => loadFromServer(), delay);
+};
+
+// Auto-reactivity for filters (500ms)
+watch(filters, () => debounceHandler(500), { deep: true });
 
 const fournisseurs = ref([]);
 const showMobileMenu = ref(false);
@@ -254,43 +255,66 @@ const toggleDark = () => {
   document.documentElement.classList.toggle('dark');
 };
 
-const exportToExcel = async () => {
+// In App.vue script setup
+
+const exportToExcel = () => {
   try {
-    showToast('info', 'Exporting...', 'Preparing your Excel file');
+    showToast('info', `Exporting ${exportMode.value === 'filtered' ? 'filtered' : 'all'} products...`, 'Server is generating Excel file. Download will start shortly.');
 
-    const response = await axios.get('http://127.0.0.1:8000/api/products', {
-      params: {
-        page: 1,
-        rowsPerPage: 10000,
-        sortBy: 'id',
-        sortType: 'asc',
-      }
-    });
+    let params = {};
 
-    const exportData = response.data.rows.map(item => ({
-      ID: item.id,
-      Reference: item.ref,
-      Designation: item.designation,
-      Marque: item.marque,
-      Prix: item.prix,
-      Date: formatDate(item.date),
-      Fournisseur: item.fournisseur
-    }));
+    if (exportMode.value === 'filtered') {
+      // Build params from current filtered state
+      params = {
+        ref: searchRef.value,
+        marque: searchMarque.value,
+        date: searchDate.value,
+        fournisseur: searchFournisseur.value,
+        designation: searchDesignation.value,
+        searchValue: searchValue.value,
+        dateFrom: filters.value.dateFrom,
+        dateTo: filters.value.dateTo,
+        // Use the correct key for the advanced filter supplier
+        fournisseur: filters.value.fournisseur || searchFournisseur.value,
+        minPrice: filters.value.minPrice,
+        maxPrice: filters.value.maxPrice,
+      };
+    }
+    // For 'all' mode, params remains an empty object.
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+    // Filter out empty parameters to create a clean URL
+    const filteredParams = Object.entries(params)
+      .filter(([_, value]) => value !== '' && value !== null)
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
 
-    const fileName = `products_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+    // Construct the URL with query parameters
+    const queryString = new URLSearchParams(filteredParams).toString();
+    const url = `http://127.0.0.1:8000/api/products/export?${queryString}`;
 
-    showToast('success', 'Export Complete', `File saved as ${fileName}`);
+    // Use a hidden anchor tag to trigger the download
+    const link = document.createElement('a' );
+    link.href = url;
+    // The 'download' attribute is not strictly necessary but good practice
+    const modeText = exportMode.value === 'filtered' ? 'filtered' : 'all';
+    link.setAttribute('download', `products_${modeText}_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+
+    link.click(); // This directly triggers the browser's download mechanism
+
+    document.body.removeChild(link);
+
+    // Note: We can't easily show a "success" toast here because we are no longer
+    // "awaiting" a response in JavaScript. The browser handles it in a separate process.
+    // The initial "Exporting..." message is the best we can do.
 
   } catch (error) {
-    console.error('Export failed:', error);
-    showToast('error', 'Export Failed', 'Could not export data. Check console for details.');
+    // This catch block will now only catch errors from building the URL, not the download itself.
+    console.error('Failed to initiate export:', error);
+    showToast('error', 'Export Failed', 'Could not create the download link. Check console.');
   }
 };
+
 
 onMounted(() => {
   const saved = localStorage.getItem('darkMode');
@@ -346,13 +370,16 @@ const loadFromServer = async () => {
     }));
     serverItemsLength.value = response.data.total;
 
-    const allItems = response.data.rows;
-    totalValue.value = allItems.reduce((sum, item) => sum + (parseFloat(item.prix) || 0), 0);
-    uniqueFournisseurs.value = new Set(allItems.map(item => item.fournisseur).filter(Boolean)).size;
+    serverItemsLength.value = response.data.total;
+
+    // Stats from current page (for dashboard, use full query if needed)
+    const pageItems = response.data.rows;
+    totalValue.value = pageItems.reduce((sum, item) => sum + (parseFloat(item.prix) || 0), 0);
+    uniqueFournisseurs.value = new Set(pageItems.map(item => item.fournisseur).filter(Boolean)).size;
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    recentImports.value = allItems.filter(item => {
+    recentImports.value = pageItems.filter(item => {
       const itemDate = new Date(item.date);
       return itemDate >= sevenDaysAgo;
     }).length;
@@ -364,13 +391,8 @@ const loadFromServer = async () => {
   loading.value = false;
 };
 
-let debounceTimer;
-watch([serverOptions, searchRef, searchMarque, searchDate, searchFournisseur, searchDesignation, searchValue], () => {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    loadFromServer();
-  }, 300);
-}, { deep: true });
+// Quick search + pagination (300ms)
+watch([serverOptions, searchRef, searchMarque, searchDate, searchFournisseur, searchDesignation, searchValue], () => debounceHandler(300), { deep: true });
 
 loadFromServer();
 </script>
@@ -428,6 +450,25 @@ html, body {
   border-radius: 12px;
   color: white;
   box-shadow: var(--shadow);
+}
+
+.export-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.export-mode {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  border-radius: 8px;
+  min-width: 80px;
+}
+
+.dark .export-mode {
+  background: rgba(0,0,0,0.3);
+  border-color: rgba(255,255,255,0.2);
 }
 
 .stats-grid {

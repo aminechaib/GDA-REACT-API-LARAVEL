@@ -8,6 +8,7 @@ use App\Models\Product; // Make sure Product model is imported
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Validators\ValidationException;
+use App\Exports\ProductsExport;
 
 class ProductController extends Controller
 {
@@ -22,7 +23,12 @@ class ProductController extends Controller
         $sortBy = $request->input('sortBy', 'id');
         $sortType = $request->input('sortType', 'asc');
 
-        $query = \App\Models\Product::query();
+        $query = Product::query();
+
+        // Handle date_display sort (frontend computed, map to date)
+        if ($sortBy === 'date_display') {
+            $sortBy = 'date';
+        }
 
         // Quick search fields
         if ($request->filled('ref')) {
@@ -70,9 +76,6 @@ class ProductController extends Controller
         }
 
         // Get total count AFTER filters
-        $total = $query->count();
-
-        // Apply sorting and pagination
         $total = $query->count();
 
         $products = $query->orderBy($sortBy, $sortType)
@@ -164,7 +167,12 @@ class ProductController extends Controller
         $sortBy = $request->input('sortBy', 'id');
         $sortType = $request->input('sortType', 'asc');
 
-        $query = \App\Models\Product::query();
+        $query = Product::query();
+
+        // Handle date_display sort
+        if ($sortBy === 'date_display') {
+            $sortBy = 'date';
+        }
 
         // Simple global search (we can add a search input later)
         if ($request->has('searchValue') && !empty($request->input('searchValue'))) {
@@ -189,5 +197,67 @@ class ProductController extends Controller
             'rows' => $products,
             'total' => $total,
         ]);
+    }
+
+    /**
+     * Export filtered or all products to Excel.
+     * Reuses exact index() filter logic for consistency.
+     * Uses chunked FromQuery export for large datasets.
+     */
+    public function export(Request $request)
+    {
+        $query = Product::query();
+
+        // Quick search fields (exact copy from index)
+        if ($request->filled('ref')) {
+            $query->where('ref', 'LIKE', '%' . $request->input('ref') . '%');
+        }
+        if ($request->filled('marque')) {
+            $query->where('marque', 'LIKE', '%' . $request->input('marque') . '%');
+        }
+        if ($request->filled('date')) {
+            $query->whereDate('date', $request->input('date'));
+        }
+        if ($request->filled('fournisseur')) {
+            $query->where('fournisseur', 'LIKE', '%' . $request->input('fournisseur') . '%');
+        }
+        if ($request->filled('designation')) {
+            $query->where('designation', 'LIKE', '%' . $request->input('designation') . '%');
+        }
+
+        // Global search (searchValue)
+        if ($request->filled('searchValue')) {
+            $searchValue = $request->input('searchValue');
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('ref', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('designation', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('marque', 'LIKE', "%{$searchValue}%")
+                    ->orWhere('fournisseur', 'LIKE', "%{$searchValue}%");
+            });
+        }
+
+        // Advanced filters (exact copy)
+        if ($request->filled('dateFrom')) {
+            $query->whereDate('date', '>=', $request->input('dateFrom'));
+        }
+        if ($request->filled('dateTo')) {
+            $query->whereDate('date', '<=', $request->input('dateTo'));
+        }
+        if ($request->filled('fournisseur') && $request->input('fournisseur') !== 'All Suppliers') {
+            $query->where('fournisseur', 'LIKE', '%' . $request->input('fournisseur') . '%');
+        }
+        if ($request->filled('minPrice')) {
+            $query->where('prix', '>=', floatval($request->input('minPrice')));
+        }
+        if ($request->filled('maxPrice')) {
+            $query->where('prix', '<=', floatval($request->input('maxPrice')));
+        }
+
+        // Sort by ID asc for consistency
+        $query->orderBy('id', 'asc');
+
+        $filename = 'products_export_' . now()->format('Y-m-d_H-i-s') . '.xlsx';
+
+        return Excel::download(new ProductsExport($query), $filename);
     }
 }

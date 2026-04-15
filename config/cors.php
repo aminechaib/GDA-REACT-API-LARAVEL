@@ -19,9 +19,7 @@ return [
 
     'allowed_methods' => ['*'], // Allows all methods like POST, GET, etc.
 
-    'allowed_origins' => [
-        'http://localhost:5173' // <-- ADD THIS LINE
-    ],
+    'allowed_origins' => ['*'],
 
     'allowed_origins_patterns' => [],
 

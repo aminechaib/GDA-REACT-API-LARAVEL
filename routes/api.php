@@ -17,4 +17,7 @@ Route::post('fournisseurs/seed', [\App\Http\Controllers\Api\FournisseurControlle
 // Import mapping endpoint
 Route::post('products/import-mapping', [ProductController::class, 'importMapping']);
 
+// Export endpoint for filtered/all products
+Route::get('products/export', [ProductController::class, 'export']);
+
 Route::post('products-simple', [ProductController::class, 'simpleIndex']);
