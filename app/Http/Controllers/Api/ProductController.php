@@ -143,10 +143,7 @@ class ProductController extends Controller
 
         try {
             foreach ($transformedData as $row) {
-                Product::updateOrCreate(
-                    ['ref' => $row['ref']],
-                    $row
-                );
+                Product::create($row);
             }
 
             return response()->json([
@@ -197,6 +194,34 @@ class ProductController extends Controller
             'rows' => $products,
             'total' => $total,
         ]);
+    }
+
+    /**
+     * Excel file import using ProductsImport class.
+     */
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:xlsx,xls,csv|max:10000'
+        ]);
+
+        try {
+            Excel::import(new ProductsImport, $request->file('file'));
+            return response()->json([
+                'message' => 'Excel import completed successfully!'
+            ], 200);
+        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+            $failures = $e->failures();
+            return response()->json([
+                'message' => 'Import completed with errors',
+                'errors' => $failures
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Import failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
